@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Vérifier un appareil — GomaDeal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow p-6 w-full max-w-md">
+    <h1 class="text-2xl font-bold mb-4 text-center">🔍 Vérifier un appareil</h1>
+
+    <!-- Formulaire -->
+    <form id="verifyForm" class="space-y-3">
+      <input id="search" placeholder="Entrez IMEI ou Code GomaDeal" class="w-full p-2 border rounded" required />
+      <button class="bg-blue-600 text-white w-full py-2 rounded">Vérifier</button>
+    </form>
+
+    <!-- Résultat principal -->
+    <div id="result" class="hidden mt-6">
+      <h2 class="text-lg font-semibold mb-2">Résultat</h2>
+      <div class="space-y-1 text-sm text-gray-700">
+        <p><strong>Code :</strong> <span id="r_code">—</span></p>
+        <p><strong>IMEI :</strong> <span id="r_imei">—</span></p>
+        <p><strong>Marque :</strong> <span id="r_brand">—</span></p>
+        <p><strong>Modèle :</strong> <span id="r_model">—</span></p>
+        <p><strong>Propriétaire :</strong> <span id="r_owner">—</span></p>
+        <p><strong>Statut :</strong> 
+          <span id="r_status" class="font-semibold text-green-600">Actif</span>
+        </p>
+        <img id="r_image" class="hidden mt-3 rounded-md max-h-56" alt="Image du téléphone" />
+      </div>
+
+      <!-- Bloc supplémentaire pour appareil perdu -->
+      <div id="lost_info" class="hidden mt-6 bg-red-50 border border-red-300 rounded-lg p-3">
+        <h3 class="text-red-700 font-semibold mb-1">⚠️ Appareil déclaré perdu</h3>
+        <p class="text-sm text-gray-700"><strong>Circonstances :</strong> <span id="r_desc">—</span></p>
+        <p class="text-sm text-gray-700"><strong>Contact à prévenir :</strong> <span id="r_contact">—</span></p>
+      </div>
+    </div>
+
+    <!-- Message d'erreur -->
+    <p id="error" class="hidden mt-4 text-center text-red-600 text-sm"></p>
+  </div>
+
+  <script type="module">
+    // === CONFIG SUPABASE ===
+     const SUPABASE_URL = "https://hdtxbiemeitwuslgwfbl.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkdHhiaWVtZWl0d3VzbGd3ZmJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNjU5MjAsImV4cCI6MjA3Nzg0MTkyMH0.obMpgyrxAobXfoNYW8qV0ApVFntnHvjmKsDvA0fN1Rw"; 
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // === ÉLÉMENTS DU DOM ===
+    const form = document.getElementById('verifyForm');
+    const searchInput = document.getElementById('search');
+    const resultBox = document.getElementById('result');
+    const errorMsg = document.getElementById('error');
+
+    const r_code = document.getElementById('r_code');
+    const r_imei = document.getElementById('r_imei');
+    const r_brand = document.getElementById('r_brand');
+    const r_model = document.getElementById('r_model');
+    const r_owner = document.getElementById('r_owner');
+    const r_status = document.getElementById('r_status');
+    const r_image = document.getElementById('r_image');
+    const lostInfo = document.getElementById('lost_info');
+    const r_desc = document.getElementById('r_desc');
+    const r_contact = document.getElementById('r_contact');
+
+    // === PARAMÈTRE AUTO VIA QR ===
+    const params = new URLSearchParams(window.location.search);
+    const qrCode = params.get('code');
+    if (qrCode) {
+      searchInput.value = qrCode;
+      verifyDevice(qrCode);
+    }
+
+    // === SOUMISSION FORMULAIRE ===
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+  const query = searchInput.value.trim();
+
+  // Validation IMEI si ce n’est pas un code GD-
+  if (!query.startsWith('GD-') && !/^\d{15}$/.test(query)) {
+    errorMsg.textContent = "Veuillez entrer un IMEI valide (15 chiffres) ou un code GomaDeal.";
+    errorMsg.classList.remove('hidden');
+    return;
+  }
+
+  if (!query) return;
+  verifyDevice(query);
+  });
+
+
+    // === FONCTION PRINCIPALE ===
+    async function verifyDevice(query) {
+      resultBox.classList.add('hidden');
+      errorMsg.classList.add('hidden');
+      lostInfo.classList.add('hidden');
+
+      try {
+        let data, error;
+
+        if (query.startsWith('GD-')) {
+          ({ data, error } = await supabase
+            .from('devices')
+            .select()
+            .eq('gomadeal_code', query)
+            .maybeSingle());
+        } else {
+          ({ data, error } = await supabase
+            .from('devices')
+            .select()
+            .eq('imei', query)
+            .maybeSingle());
+        }
+
+        if (error) throw error;
+        if (!data) throw new Error("Aucun appareil trouvé.");
+
+        // === AFFICHAGE DES DONNÉES ===
+        r_code.textContent = data.gomadeal_code || '—';
+        r_imei.textContent = data.imei || '—';
+        r_brand.textContent = data.brand || '—';
+        r_model.textContent = data.model || '—';
+        r_owner.textContent = data.owner_contact || '—';
+        r_status.textContent = data.status === 'lost' ? 'Perdu' : 'Actif';
+        r_status.className = data.status === 'lost'
+          ? 'font-semibold text-red-600'
+          : 'font-semibold text-green-600';
+
+        if (data.image_path) {
+          r_image.src = data.image_path;
+          r_image.classList.remove('hidden');
+        } else {
+          r_image.classList.add('hidden');
+        }
+
+        // === CAS SPÉCIAL : APPAREIL PERDU ===
+        if (data.status === 'lost') {
+          r_desc.textContent = data.last_report_description || 'Non spécifié';
+          r_contact.textContent = data.last_report_contact || '—';
+          lostInfo.classList.remove('hidden');
+        }
+
+        resultBox.classList.remove('hidden');
+      } catch (err) {
+        console.error(err);
+        errorMsg.textContent = err.message;
+        errorMsg.classList.remove('hidden');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+Excellent 🔥
+Tu prends **la bonne approche professionnelle** : repartir à zéro mais en blocs quotidiens *complets et testables* — c’est exactement la méthode des équipes startup sérieuses (MVP → sprint → test → itération).
+
+---
+
+## 🎯 Objectif
+
+Créer **GomaDeal V2** — version propre, modulaire et testée bloc par bloc.
+
+---
+
+## ⚙️ MÉTHODOLOGIE DE DÉVELOPPEMENT
+
+On va travailler en **blocs journaliers (sprints)** :
+
+* Chaque bloc = une *fonction complète* (front + back + DB + test)
+* Chaque bloc est **indépendant et fonctionnel seul**
+* À la fin du bloc → on valide en local avant d’avancer
+
+---
+
+## 🧱 STRUCTURE GÉNÉRALE DU PROJET (finale)
+
+Avant d’entrer dans les blocs, voici la structure finale qu’on vise :
+
+```
+GomaDeal/
+├── manifest.json
+├── sw.js
+├── icons/
+├── sql/
+│   ├── schema.sql
+│   ├── functions.sql
+│   ├── policies.sql
+├── src/
+│   ├── js/
+│   │   ├── api.js
+│   │   └── (autres plus tard)
+│   └── pages/
+│       ├── register.html
+│       ├── verify.html
+│       ├── market.html
+│       ├── chat.html
+│       ├── report.html
+│       └── dashboard.html
+```
+
+---
+
+## 📅 PLANNING EN BLOCS JOURNALIERS (7 JOURS)
+
+| Jour    | Bloc                    | Objectif principal                                                                                     | Résultat testable                                           |
+| ------- | ----------------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| **1️⃣** | Initialisation          | Créer base Supabase, setup local, table devices, fonction register_device, page Register fonctionnelle | Enregistrement d’un appareil fonctionnel avec code GD-xxxxx |
+| **2️⃣** | Vérification            | Page Verify.html + RPC de recherche (IMEI / Code), affichage infos                                     | Recherche et affichage d’un appareil enregistré             |
+| **3️⃣** | Signalement (Report)    | Page Report + RPC `report_lost`, marquage d’appareil comme “lost”                                      | Un appareil signalé devient “perdu”                         |
+| **4️⃣** | Marché                  | Page Market + table market_listings + upload image                                                     | Afficher les annonces en ligne                              |
+| **5️⃣** | Vente + Sécurité        | Formulaire Sell + vérification IMEI perdu                                                              | Empêche de vendre un appareil perdu                         |
+| **6️⃣** | Chat                    | Table chat_messages + interface chat                                                                   | Communication en temps réel entre deux utilisateurs         |
+| **7️⃣** | Dashboard global + Auth | Interface centralisée (user/admin) + redirection                                                       | Dashboard complet avec stats et liens actifs                |
+
+---
+
+## 🚀 COMMENÇONS PAR LE **BLOC 1 — INITIALISATION (jour 1)**
+
+> Ce bloc te donnera un projet **opérationnel dès le premier jour** :
+> tu pourras enregistrer un appareil et générer un code GomaDeal.
+
+---
+
+### 🔹 Étape 1 : Créer le projet Supabase
+
+1. Va sur [https://supabase.com](https://supabase.com)
+2. Crée un **nouveau projet**
+3. Copie :
+
+   * **Project URL**
+   * **Anon Key**
+4. Active RLS et crée un bucket “device-images”
+
+---
+
+### 🔹 Étape 2 : Créer le fichier SQL `schema.sql`
+
+Colle ceci dans ton éditeur SQL Supabase :
+
+```sql
+create extension if not exists "pgcrypto";
+
+create sequence if not exists public.gd_seq;
+
+create table if not exists public.devices (
+  id uuid default gen_random_uuid() primary key,
+  gomadeal_code text unique,
+  imei text unique not null,
+  brand text,
+  model text,
+  owner_contact text,
+  image_path text,
+  registered_paid boolean default false,
+  status text default 'active',
+  created_at timestamptz default now()
+);
+```
+
+---
+
+### 🔹 Étape 3 : Fonction `register_device()`
+
+```sql
+create or replace function public.next_gd_code()
+returns text language plpgsql as $$
+declare
+  seq bigint;
+begin
+  create sequence if not exists public.gd_seq;
+  seq := nextval('public.gd_seq');
+  return 'GD-' || lpad(seq::text, 5, '0');
+end;
+$$;
+
+create or replace function public.register_device(
+  p_imei text,
+  p_brand text,
+  p_model text,
+  p_owner_contact text,
+  p_image_path text default null
+)
+returns table(id uuid, gomadeal_code text, created_at timestamptz)
+language plpgsql
+security definer as $$
+declare
+  v_id uuid;
+  v_code text;
+  v_created timestamptz;
+begin
+  if exists(select 1 from public.devices where imei = p_imei) then
+    raise exception 'IMEI déjà enregistré';
+  end if;
+
+  v_code := public.next_gd_code();
+
+  insert into public.devices (gomadeal_code, imei, brand, model, owner_contact, image_path)
+  values (v_code, p_imei, p_brand, p_model, p_owner_contact, p_image_path)
+  returning id, created_at into v_id, v_created;
+
+  return query select v_id, v_code, v_created;
+end;
+$$;
+
+grant execute on function public.register_device(text, text, text, text, text) to anon;
+```
+
+---
+
+### 🔹 Étape 4 : Créer `src/js/api.js`
+
+```js
+const SUPABASE_URL = "https://xxxx.supabase.co"; // ton URL
+const SUPABASE_ANON_KEY = "xxxx"; // ta clé
+
+export const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+export async function registerDevice({ imei, brand, model, owner_contact, image_path }) {
+  const { data, error } = await supabase.rpc('register_device', {
+    p_imei: imei,
+    p_brand: brand,
+    p_model: model,
+    p_owner_contact: owner_contact,
+    p_image_path: image_path
+  });
+  if (error) throw error;
+  return data[0];
+}
+```
+
+---
+
+### 🔹 Étape 5 : Créer la page `src/pages/register.html`
+
+```html
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Enregistrer un appareil — GomaDeal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen p-6 flex items-center justify-center">
+  <div class="max-w-md w-full bg-white p-6 rounded-lg shadow">
+    <h1 class="text-2xl font-bold mb-4 text-center">📱 Enregistrer un appareil</h1>
+
+    <form id="registerForm" class="space-y-3">
+      <input id="imei" required placeholder="IMEI" class="w-full p-2 border rounded" />
+      <input id="brand" placeholder="Marque" class="w-full p-2 border rounded" />
+      <input id="model" placeholder="Modèle" class="w-full p-2 border rounded" />
+      <input id="owner_contact" placeholder="Contact propriétaire" class="w-full p-2 border rounded" />
+      <button class="bg-blue-600 text-white w-full py-2 rounded">Enregistrer</button>
+    </form>
+
+    <div id="result" class="mt-4 hidden">
+      <h2 class="font-semibold text-lg mb-2">✅ Enregistrement réussi</h2>
+      <p>Code GomaDeal : <span id="gdcode" class="font-mono text-blue-600"></span></p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { registerDevice } from '/src/js/api.js';
+
+    const form = document.getElementById('registerForm');
+    const result = document.getElementById('result');
+    const gdcodeEl = document.getElementById('gdcode');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const data = {
+          imei: imei.value,
+          brand: brand.value,
+          model: model.value,
+          owner_contact: owner_contact.value
+        };
+        const device = await registerDevice(data);
+        gdcodeEl.textContent = device.gomadeal_code;
+        result.classList.remove('hidden');
+        form.reset();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  </script>
+</body>
+</html>
+```
+
+---
+
+### 🔹 Étape 6 : Test
+
+1. Lance un serveur local (`npx serve` ou `live-server`)
+2. Ouvre [http://localhost:3000/src/pages/register.html](http://localhost:3000/src/pages/register.html)
+3. Remplis le formulaire → clique “Enregistrer”
+4. ✅ Tu devrais voir un code **GD-00001**
+
+---
+
+### ✅ Résultat final du jour 1
+
+Tu disposes :
+
+* d’un backend SQL fonctionnel
+* d’une fonction `register_device()` qui marche
+* d’une page HTML propre
+* d’un JS simple et clair
+* d’un test en local valide
+
+---
+
+Souhaites-tu que demain (bloc 2️⃣) on parte sur la **page Verify** (recherche IMEI / code + affichage infos) ?
+👉 Ce sera le bloc 2, entièrement prêt en une journée, avec test complet.
