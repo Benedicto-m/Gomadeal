@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GomaDeal — Tableau de bord</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+
+  <!-- HEADER -->
+  <header class="bg-blue-600 text-white p-4 shadow">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+      <h1 class="text-xl font-bold">📱 GomaDeal Dashboard</h1>
+      <button id="logoutBtn" class="bg-white text-blue-600 px-3 py-1 rounded text-sm font-semibold">Déconnexion</button>
+    </div>
+  </header>
+
+  <!-- MENU -->
+  <nav class="bg-white border-b shadow-sm">
+    <div class="max-w-5xl mx-auto flex justify-around py-2">
+      <button data-tab="market" class="tab-btn text-blue-600 font-semibold">🛍️ Marché</button>
+      <button data-tab="verify" class="tab-btn">🔍 Vérifier</button>
+      <button data-tab="report" class="tab-btn">⚠️ Signaler</button>
+      <button data-tab="chat" class="tab-btn">💬 Discussions</button>
+      <button data-tab="settings" class="tab-btn">⚙️ Paramètres</button>
+    </div>
+  </nav>
+
+  <!-- CONTENU -->
+  <main class="max-w-5xl mx-auto p-4">
+    <div id="content"></div>
+  </main>
+
+  <!-- ===================== CHAT FLOTTANT ===================== -->
+  <div id="chatBox"
+    class="fixed bottom-4 right-4 w-80 bg-white rounded-lg shadow-lg border border-gray-300 hidden flex flex-col overflow-hidden z-50">
+
+    <div class="bg-blue-600 text-white p-2 font-semibold flex justify-between items-center">
+      <span id="chatTitle">💬 Discussion</span>
+      <button id="closeChat" class="text-white font-bold text-xl">&times;</button>
+    </div>
+
+    <div id="chatMessages" class="flex-1 p-2 overflow-y-auto space-y-1 text-sm"></div>
+
+    <div class="p-2 border-t flex gap-2">
+      <input id="chatInput" placeholder="Votre message..." class="flex-1 border rounded px-2 py-1 text-sm">
+      <button id="sendMsg" class="bg-blue-600 text-white px-2 py-1 rounded text-sm">Envoyer</button>
+    </div>
+  </div>
+  <!-- ========================================================= -->
+
+
+
+  <script type="module">
+
+    /* ===========================================================
+        SUPABASE CONFIG
+    ============================================================ */
+    const SUPABASE_URL = "https://hdtxbiemeitwuslgwfbl.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkdHhiaWVtZWl0d3VzbGd3ZmJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNjU5MjAsImV4cCI6MjA3Nzg0MTkyMH0.obMpgyrxAobXfoNYW8qV0ApVFntnHvjmKsDvA0fN1Rw"; 
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+
+    /* ===========================================================
+        VARIABLES GLOBALES
+    ============================================================ */
+    const content = document.getElementById('content');
+    const userContact = localStorage.getItem("userContact") || prompt("Votre contact téléphonique ?");
+    localStorage.setItem("userContact", userContact);
+
+    // Selection tabs
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+    switchTab('market'); // default
+
+
+
+    /* ===========================================================
+        NAVIGATION ENTRE TABS
+    ============================================================ */
+    function switchTab(tab) {
+      tabs.forEach(b => b.classList.remove('text-blue-600', 'font-semibold'));
+      document.querySelector(`[data-tab="${tab}"]`).classList.add('text-blue-600', 'font-semibold');
+
+      if (tab === 'market') loadMarket();
+      else if (tab === 'verify') loadVerify();
+      else if (tab === 'report') loadReport();
+      else if (tab === 'chat') loadChat();
+      else loadSettings();
+    }
+
+
+
+    /* ===========================================================
+        1️⃣ MARKET
+    ============================================================ */
+    async function loadMarket() {
+
+      content.innerHTML = `
+        <div class="bg-white p-4 rounded shadow mb-4">
+          <h2 class="text-xl font-bold mb-3">Ajouter une annonce</h2>
+
+          <form id="addForm" class="grid gap-3">
+            <input id="title" placeholder="Titre" class="p-2 border rounded" required />
+            <textarea id="desc" placeholder="Description" class="p-2 border rounded"></textarea>
+            <input id="price" type="number" placeholder="Prix (FC)" class="p-2 border rounded" required />
+            <input id="contact" value="${userContact}" class="p-2 border rounded" required />
+            <input id="image" type="file" accept="image/*" class="p-2 border rounded" />
+            <button class="bg-blue-600 text-white py-2 rounded">Publier</button>
+          </form>
+        </div>
+
+        <div id="feed" class="grid gap-4"></div>
+      `;
+
+      const feed = document.getElementById('feed');
+      const form = document.getElementById('addForm');
+
+      // Upload image
+      async function uploadImage(file) {
+        if (!file) return null;
+        const safeName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+        const { error } = await supabase.storage.from('market-images')
+          .upload(safeName, file);
+
+        if (error) throw error;
+
+        return `${SUPABASE_URL}/storage/v1/object/public/market-images/${encodeURIComponent(safeName)}`;
+      }
+
+      // Charger les annonces
+      async function loadFeed() {
+        const { data, error } = await supabase.from('market_listings')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) return feed.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+        if (!data.length) return feed.innerHTML = `<p class="text-center text-gray-400">Aucune annonce.</p>`;
+
+        feed.innerHTML = data.map(item => `
+          <div class="bg-white p-3 rounded shadow flex flex-col sm:flex-row gap-3">
+            ${item.image_url ? `<img src="${item.image_url}" class="w-32 h-32 object-cover rounded">` : ''}
+            <div class="flex-1">
+              <h3 class="font-semibold">${item.title}</h3>
+              <p class="text-gray-600 text-sm">${item.description || ''}</p>
+              <p class="font-bold mt-1">${item.price.toLocaleString()} FC</p>
+              <p class="text-xs text-gray-500">Vendeur : ${item.seller_contact}</p>
+
+              <button onclick="openChat('${item.id}', '${item.seller_contact}')"
+                class="bg-green-600 text-white px-3 py-1 rounded mt-2 text-sm">
+                💬 Chat
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      form.onsubmit = async e => {
+        e.preventDefault();
+
+        const title = document.getElementById('title').value.trim();
+        const desc = document.getElementById('desc').value.trim();
+        const price = parseInt(document.getElementById('price').value);
+        const contact = document.getElementById('contact').value.trim();
+        const file = document.getElementById('image').files[0];
+
+        try {
+          const image_url = file ? await uploadImage(file) : null;
+
+          await supabase.from('market_listings').insert({
+            title, description: desc, price,
+            seller_contact: contact,
+            image_url
+          });
+
+          alert("Annonce publiée !");
+          form.reset();
+          loadFeed();
+        } catch (err) {
+          alert("Erreur : " + err.message);
+        }
+      };
+
+      loadFeed();
+    }
+
+
+
+    /* ===========================================================
+        2️⃣ VERIFY
+    ============================================================ */
+    async function loadVerify() {
+
+      content.innerHTML = `
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-xl font-bold mb-3">Vérifier un appareil</h2>
+
+          <input id="searchQuery" placeholder="IMEI ou Code GomaDeal"
+            class="p-2 border rounded w-full mb-2">
+
+          <button id="searchBtn" class="bg-blue-600 text-white px-3 py-1 rounded">
+            Vérifier
+          </button>
+
+          <div id="verifyResult" class="mt-3"></div>
+        </div>
+      `;
+
+      const input = document.getElementById('searchQuery');
+      const btn = document.getElementById('searchBtn');
+      const result = document.getElementById('verifyResult');
+
+      btn.onclick = async () => {
+        const q = input.value.trim();
+        if (!q) return;
+
+        const { data } = await supabase.from('devices')
+          .select('*')
+          .or(`imei.eq.${q},gomadeal_code.eq.${q}`)
+          .limit(1);
+
+        if (!data.length) {
+          result.innerHTML = `<p class="text-red-500">Aucun appareil trouvé.</p>`;
+          return;
+        }
+
+        const d = data[0];
+
+        result.innerHTML = `
+          <div class="border p-3 rounded">
+            <p><strong>IMEI:</strong> ${d.imei}</p>
+            <p><strong>Code GD:</strong> ${d.gomadeal_code}</p>
+            <p><strong>Marque:</strong> ${d.brand}</p>
+            <p><strong>Modèle:</strong> ${d.model}</p>
+            <p><strong>Owner:</strong> ${d.owner_contact}</p>
+            <p><strong>Status:</strong> 
+              <span class="${d.status === 'lost' ? 'text-red-600' : 'text-green-600'}">
+                ${d.status}
+              </span>
+            </p>
+          </div>
+        `;
+      };
+    }
+
+
+
+    /* ===========================================================
+        3️⃣ REPORT
+    ============================================================ */
+    function loadReport() {
+      content.innerHTML = `
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-xl font-bold mb-3">Signaler un téléphone perdu</h2>
+
+          <form id="reportForm" class="grid gap-3">
+            <input id="r_imei" placeholder="IMEI" class="p-2 border rounded" required>
+            <textarea id="r_desc" placeholder="Circonstances" class="p-2 border rounded" required></textarea>
+            <input id="r_contact" value="${userContact}" class="p-2 border rounded" required>
+            <button class="bg-red-600 text-white py-2 rounded">Signaler</button>
+          </form>
+        </div>
+      `;
+
+      document.getElementById('reportForm').onsubmit = async e => {
+        e.preventDefault();
+
+        const imei = document.getElementById('r_imei').value;
+        const desc = document.getElementById('r_desc').value;
+        const contact = document.getElementById('r_contact').value;
+
+        const { error } = await supabase.from('lost_reports')
+          .insert({ imei, description: desc, reporter_contact: contact });
+
+        if (error) alert('Erreur: ' + error.message);
+        else alert('Téléphone signalé !');
+      };
+    }
+
+
+
+    /* ===========================================================
+        4️⃣ DISCUSSIONS
+    ============================================================ */
+    async function loadChat() {
+
+      content.innerHTML = `<p class="text-center text-gray-500">Chargement...</p>`;
+
+      const { data: sent } = await supabase.from('chat_messages').select(`
+        id, message, sender_contact, created_at,
+        listing_id, market_listings (title, seller_contact)
+      `).eq('sender_contact', userContact);
+
+      const { data: listings } = await supabase.from('market_listings')
+        .select('id')
+        .eq('seller_contact', userContact);
+
+      const ids = listings.map(x => x.id);
+
+      const { data: recv } = await supabase.from('chat_messages').select(`
+        id, message, sender_contact, created_at,
+        listing_id, market_listings (title, seller_contact)
+      `).in('listing_id', ids);
+
+      const all = [...(sent || []), ...(recv || [])]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      if (!all.length) {
+        content.innerHTML = `<p class="text-gray-400 text-center">Aucune discussion.</p>`;
+        return;
+      }
+
+      content.innerHTML = all.map(m => `
+        <div class="border-b py-2">
+          <p><strong>${m.sender_contact}</strong> → ${m.market_listings?.seller_contact}</p>
+          <p>${m.message}</p>
+          <p class="text-xs text-gray-400">${new Date(m.created_at).toLocaleString()}</p>
+        </div>
+      `).join('');
+    }
+
+
+
+    /* ===========================================================
+        5️⃣ PARAMÈTRES
+    ============================================================ */
+    function loadSettings() {
+      content.innerHTML = `
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-xl font-bold mb-3">Paramètres</h2>
+          <p>Contact actuel : <strong>${userContact}</strong></p>
+
+          <button id="resetBtn" class="bg-red-600 text-white px-3 py-1 rounded mt-3">
+            Changer de contact
+          </button>
+        </div>
+      `;
+
+      document.getElementById('resetBtn').onclick = () => {
+        localStorage.removeItem("userContact");
+        location.reload();
+      };
+    }
+
+
+
+    /* ===========================================================
+        CHAT FLOTTANT — SYSTEME COMPLET
+    ============================================================ */
+
+    let currentListing = null;
+    let currentSeller = null;
+
+    const chatBox = document.getElementById("chatBox");
+    const chatMessages = document.getElementById("chatMessages");
+    const chatInput = document.getElementById("chatInput");
+    const sendBtn = document.getElementById("sendMsg");
+    const closeChat = document.getElementById("closeChat");
+
+    window.openChat = function (listingId, seller) {
+      currentListing = listingId;
+      currentSeller = seller;
+      document.getElementById("chatTitle").textContent = `💬 Chat avec ${seller}`;
+      chatBox.classList.remove("hidden");
+      loadMessagesChat();
+    };
+
+    async function loadMessagesChat() {
+      const { data } = await supabase.from("chat_messages")
+        .select("*")
+        .eq("listing_id", currentListing)
+        .order("created_at", { ascending: true });
+
+      chatMessages.innerHTML = data.map(m => `
+        <div class="p-1 rounded ${m.sender_contact === userContact ? 'bg-blue-100 text-right' : 'bg-gray-200 text-left'}">
+          <strong>${m.sender_contact}:</strong> ${m.message}
+        </div>
+      `).join('');
+
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    sendBtn.onclick = async () => {
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      await supabase.from("chat_messages").insert({
+        listing_id: currentListing,
+        sender_contact: userContact,
+        message
+      });
+
+      chatInput.value = "";
+    };
+
+    closeChat.onclick = () => chatBox.classList.add("hidden");
+
+    // Realtime
+    supabase.channel("realtime_chat")
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "chat_messages" },
+        payload => {
+          const m = payload.new;
+          if (m.listing_id === currentListing) {
+            const div = document.createElement("div");
+            div.className = `p-1 rounded ${m.sender_contact === userContact ? 'text-right bg-blue-100' : 'text-left bg-gray-200'}`;
+            div.innerHTML = `<strong>${m.sender_contact}:</strong> ${m.message}`;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+          }
+        }
+      )
+      .subscribe();
+
+
+
+    /* ===========================================================
+        DECONNEXION
+    ============================================================ */
+    document.getElementById('logoutBtn').onclick = () => {
+      localStorage.clear();
+      location.reload();
+    };
+
+  </script>
+
+</body>
+</html>

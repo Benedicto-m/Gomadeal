@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>GomaDeal — Sécurise tes téléphones</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Tailwind CDN pour aller vite au début (pour prod plus tard on pourra builder) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-50 text-slate-900">
+  <!-- HEADER -->
+  <header class="bg-white border-b sticky top-0 z-40">
+    <div class="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">
+          GD
+        </div>
+        <div>
+          <p class="font-bold text-lg">GomaDeal</p>
+          <p class="text-xs text-slate-500">Sécurité téléphones • Goma / RDC</p>
+        </div>
+      </div>
+
+      <nav class="hidden sm:flex gap-4 text-sm">
+        <button data-section="home" class="nav-link text-blue-600 font-semibold">Accueil</button>
+        <button data-section="register" class="nav-link">Enregistrer</button>
+        <button data-section="verify" class="nav-link">Vérifier</button>
+        <button data-section="market" class="nav-link">Marché</button>
+        <button data-section="dashboard" class="nav-link">Dashboard</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- CONTENU PRINCIPAL -->
+  <main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+    
+    <!-- SECTION ACCUEIL -->
+    <section id="section-home" class="app-section">
+      <div class="grid md:grid-cols-2 gap-6 items-center">
+        <div>
+          <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mb-3">
+            GomaDeal protège tes téléphones <span class="text-blue-600">comme un passeport</span>.
+          </h1>
+          <p class="text-sm text-slate-600 mb-4">
+            Enregistre ton téléphone, vérifie un appareil avant d’acheter, 
+            signale un smartphone volé, et négocie en sécurité avec le vendeur. 
+            Pensé pour Goma, Gisenyi, Bukavu… et tous les bleds où les téléphones se volent trop.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <button data-section="register"
+              class="nav-link inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow">
+              ✍️ Enregistrer un téléphone
+            </button>
+            <button data-section="verify"
+              class="nav-link inline-flex items-center bg-slate-100 text-slate-800 px-4 py-2 rounded-lg text-sm">
+              🔍 Vérifier un appareil
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow p-4 border border-slate-100">
+          <p class="text-xs uppercase text-slate-400 mb-2">Exemple</p>
+          <div class="space-y-2 text-sm">
+            <p><span class="font-semibold">Code GomaDeal:</span> GD-00042</p>
+            <p><span class="font-semibold">IMEI:</span> 354829104918273</p>
+            <p><span class="font-semibold">Statut:</span> <span class="text-green-600 font-semibold">Actif</span></p>
+            <p class="text-xs text-slate-500">
+              Scanne le QR code sur l’étiquette GomaDeal pour vérifier que le téléphone n’est pas volé.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION REGISTER (VIDE POUR L’INSTANT, ON REMPLIRA AU BLOC 2) -->
+   <!-- SECTION REGISTER -->
+<section id="section-register" class="app-section hidden">
+  <h2 class="text-xl font-bold mb-3">✍️ Enregistrer un téléphone</h2>
+
+  <form id="registerForm" class="grid gap-3 bg-white border rounded-lg p-4 shadow">
+
+    <input id="reg_imei" placeholder="IMEI (14-16 chiffres)"
+      class="p-3 border rounded-lg" required />
+
+    <input id="reg_brand" placeholder="Marque (ex: Samsung)"
+      class="p-3 border rounded-lg" required />
+
+    <input id="reg_model" placeholder="Modèle (ex: A12)"
+      class="p-3 border rounded-lg" required />
+
+    <input id="reg_contact" placeholder="Votre contact Whatsapp"
+      class="p-3 border rounded-lg" required />
+
+    <input id="reg_image" type="file" accept="image/*"
+      class="p-3 border rounded-lg" />
+
+    <button class="bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
+      Enregistrer maintenant
+    </button>
+  </form>
+
+  <div id="register_result" class="mt-4"></div>
+</section>
+
+
+    <!-- SECTION VERIFY -->
+    <section id="section-verify" class="app-section hidden">
+      <h2 class="text-xl font-bold mb-2">🔍 Vérifier un appareil</h2>
+      <p class="text-sm text-slate-600 mb-4">
+        Cette section affichera le formulaire pour vérifier un téléphone par IMEI ou code GomaDeal.
+      </p>
+      <div class="bg-white border rounded-lg p-4 text-sm text-slate-500">
+        <p>Bloc 3 : logique verify + affichage du statut (Actif / Perdu).</p>
+      </div>
+    </section>
+
+    <!-- SECTION MARKET -->
+    <section id="section-market" class="app-section hidden">
+      <h2 class="text-xl font-bold mb-2">🛍️ Marché GomaDeal</h2>
+      <p class="text-sm text-slate-600 mb-4">
+        Ici on affichera les téléphones en vente, avec photos, prix, et bouton de chat.
+      </p>
+      <div class="bg-white border rounded-lg p-4 text-sm text-slate-500">
+        <p>Bloc 4 : feed + chat vendeur/acheteur.</p>
+      </div>
+    </section>
+
+    <!-- SECTION DASHBOARD -->
+    <section id="section-dashboard" class="app-section hidden">
+      <h2 class="text-xl font-bold mb-2">📊 Dashboard utilisateur</h2>
+      <p class="text-sm text-slate-600 mb-4">
+        Ce sera ton centre de contrôle : tes appareils enregistrés, tes annonces, tes messages.
+      </p>
+      <div class="bg-white border rounded-lg p-4 text-sm text-slate-500">
+        <p>Bloc 5 : dashboard connecté à ton compte.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t bg-white mt-6">
+    <div class="max-w-5xl mx-auto px-4 py-3 text-xs text-slate-500 flex justify-between">
+      <span>© ${new Date().getFullYear()} GomaDeal</span>
+      <span>Made in Goma • beta</span>
+    </div>
+  </footer>
+
+  <!-- SCRIPT NAVIGATIONS -->
+  <script>
+    const sections = document.querySelectorAll('.app-section');
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    function showSection(name) {
+      sections.forEach(sec => sec.classList.add('hidden'));
+      const target = document.getElementById('section-' + name);
+      if (target) target.classList.remove('hidden');
+    }
+
+    navLinks.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const section = btn.getAttribute('data-section');
+        if (section) showSection(section);
+      });
+    });
+
+    // Par défaut : Accueil
+    showSection('home');
+  </script>
+  <!-- QRCode library -->
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<!-- App JS -->
+<script type="module">
+  import { handleRegisterSubmit } from "./src/app.js";
+
+  const regForm = document.getElementById("registerForm");
+  if (regForm) {
+    regForm.addEventListener("submit", handleRegisterSubmit);
+  }
+</script>
+
+</body>
+</html>
