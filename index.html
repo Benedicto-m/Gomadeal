@@ -80,9 +80,17 @@
   <h2 class="text-xl font-bold mb-3">✍️ Enregistrer un téléphone</h2>
 
   <form id="registerForm" class="grid gap-3 bg-white border rounded-lg p-4 shadow">
+  
+      <input id="reg_imei"
+       type="text"
+       maxlength="15"
+       minlength="15"
+       pattern="\d{15}"
+       inputmode="numeric"
+       class="p-3 border rounded-lg"
+       required
+       placeholder="IMEI (15 chiffres)">
 
-    <input id="reg_imei" placeholder="IMEI (14-16 chiffres)"
-      class="p-3 border rounded-lg" required />
 
     <input id="reg_brand" placeholder="Marque (ex: Samsung)"
       class="p-3 border rounded-lg" required />

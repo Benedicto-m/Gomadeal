@@ -2,6 +2,8 @@
    🔵 SUPABASE CONFIG (via module import)
 ============================================================ */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import QRCode from "https://cdn.jsdelivr.net/npm/qrcode@1.5.1/+esm";
+
 
 const SUPABASE_URL = "https://hdtxbiemeitwuslgwfbl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhkdHhiaWVtZWl0d3VzbGd3ZmJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNjU5MjAsImV4cCI6MjA3Nzg0MTkyMH0.obMpgyrxAobXfoNYW8qV0ApVFntnHvjmKsDvA0fN1Rw"; 
@@ -13,7 +15,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 ============================================================ */
 export function generateQR(text) {
   const canvas = document.createElement("canvas");
-  QRCode.toCanvas(canvas, text, { width: 160 });
+  QRCode.toCanvas(canvas, text, { width: 200, margin: 1 });
   return canvas.toDataURL("image/png");
 }
 
@@ -48,7 +50,33 @@ export async function handleRegisterSubmit(e) {
 
   const resultBox = document.getElementById("register_result");
 
+  // ✅ Vérification IMEI exactement 15 chiffres
+  if (!/^\d{15}$/.test(imei)) {
+    resultBox.innerHTML = `
+      <div class="bg-red-50 p-3 rounded border border-red-300">
+        <p class="text-red-700 font-bold">IMEI invalid</p>
+        <p>Le numéro IMEI doit contenir exactement 15 chiffres.</p>
+      </div>`;
+    return;
+  }
+
   try {
+    // ✅ Vérifier si IMEI existe déjà
+    const { data: existing } = await supabase
+      .from("devices")
+      .select("imei")
+      .eq("imei", imei)
+      .single();
+
+    if (existing) {
+      resultBox.innerHTML = `
+        <div class="bg-yellow-50 p-3 rounded border border-yellow-300">
+          <p class="text-yellow-800 font-bold">Appareil déjà enregistré</p>
+          <p>Cet IMEI existe déjà dans GomaDeal.</p>
+        </div>`;
+      return;
+    }
+
     let image_url = null;
     if (file) {
       image_url = await uploadDeviceImage(file);
