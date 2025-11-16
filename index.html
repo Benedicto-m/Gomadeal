@@ -114,26 +114,29 @@
 
 
     <!-- SECTION VERIFY -->
-    <section id="section-verify" class="app-section hidden">
-      <h2 class="text-xl font-bold mb-2">🔍 Vérifier un appareil</h2>
-      <p class="text-sm text-slate-600 mb-4">
-        Cette section affichera le formulaire pour vérifier un téléphone par IMEI ou code GomaDeal.
-      </p>
-      <div class="bg-white border rounded-lg p-4 text-sm text-slate-500">
-        <p>Bloc 3 : logique verify + affichage du statut (Actif / Perdu).</p>
-      </div>
-    </section>
+<!-- SECTION VERIFY PREMIUM -->
+<section id="section-verify" class="app-section hidden">
+  <h2 class="text-xl font-bold mb-3">🔍 Vérifier un appareil</h2>
 
-    <!-- SECTION MARKET -->
-    <section id="section-market" class="app-section hidden">
-      <h2 class="text-xl font-bold mb-2">🛍️ Marché GomaDeal</h2>
-      <p class="text-sm text-slate-600 mb-4">
-        Ici on affichera les téléphones en vente, avec photos, prix, et bouton de chat.
-      </p>
-      <div class="bg-white border rounded-lg p-4 text-sm text-slate-500">
-        <p>Bloc 4 : feed + chat vendeur/acheteur.</p>
-      </div>
-    </section>
+  <div class="bg-white p-4 rounded-xl shadow border space-y-4">
+
+    <div class="space-y-1">
+      <label class="text-sm text-slate-600">IMEI ou Code GomaDeal :</label>
+      <input id="v_query"
+             type="text"
+             class="p-3 border rounded-lg w-full"
+             placeholder="Ex: 354829109812736 ou GD-00123"
+             required />
+    </div>
+
+    <button id="v_btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold">
+      Vérifier maintenant
+    </button>
+
+    <div id="verify_result" class="mt-4"></div>
+  </div>
+</section>
+
 
     <!-- SECTION DASHBOARD -->
     <section id="section-dashboard" class="app-section hidden">
@@ -187,6 +190,12 @@
     regForm.addEventListener("submit", handleRegisterSubmit);
   }
 </script>
+<script type="module">
+  import { handleVerify } from "./src/app.js";
+
+  document.getElementById("v_btn").addEventListener("click", handleVerify);
+</script>
+
 
 </body>
 </html>
